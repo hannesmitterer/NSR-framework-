@@ -130,12 +130,75 @@ curl -X POST http://localhost:8000/message \
 
 ---
 
+## External AI Integration
+
+The network provides a comprehensive integration API for external AI systems.
+
+### Quick Start
+
+```python
+from ai_integration import SyncAIIntegration
+
+# Simple synchronous integration
+ai = SyncAIIntegration()
+state = ai.get_state()
+ai.send_message(role="MyBot", data="Hello, network!")
+```
+
+### Advanced Integration (OpenAI GPT)
+
+```python
+from ai_integration import OpenAIIntegration
+import asyncio
+
+async def integrate_gpt():
+    async with OpenAIIntegration(model="gpt-4") as ai:
+        # GPT analyzes network and responds
+        response = await ai.interact_with_network()
+        print(f"GPT says: {response}")
+
+asyncio.run(integrate_gpt())
+```
+
+### Real-time Event Subscription
+
+```python
+from ai_integration import NetworkEventSubscriber
+
+subscriber = NetworkEventSubscriber()
+
+async def on_message(payload):
+    print(f"New message: {payload.get('data')}")
+
+subscriber.on("message", on_message)
+await subscriber.subscribe()
+```
+
+### Integration Examples
+
+See the [`examples/`](examples/) directory for complete integration examples:
+
+- **example_simple_sync.py** - Basic synchronous integration
+- **example_openai_integration.py** - OpenAI GPT integration  
+- **example_event_subscriber.py** - Real-time event monitoring
+- **example_multi_ai_collaboration.py** - Multiple AIs collaborating
+
+Run an example:
+```bash
+python examples/example_simple_sync.py
+```
+
+For detailed integration documentation, see [`examples/README.md`](examples/README.md).
+
+---
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | — | OpenAI API key (RADICE & NODO) |
+| `OPENAI_API_KEY` | — | OpenAI API key (RADICE & NODO, or external integration) |
 | `GEMINI_API_KEY` | — | Google Gemini API key (SILENZIO) |
+| `ANTHROPIC_API_KEY` | — | Anthropic Claude API key (optional, for AI integration) |
 | `ROLE` | `RADICE` | Agent role (`RADICE`/`SILENZIO`/`NODO`) |
 | `HUB_URI` | `ws://hub:8765` | WebSocket hub address |
 | `AGENT_INTERVAL` | `5` | Seconds between agent cycles |
@@ -156,7 +219,14 @@ NSR-framework-/
 ├── memory.py           Shared vector memory (ChromaDB + hash chain)
 ├── reputation.py       Distributed reputation / trust engine
 ├── dashboard_api.py    Public REST + WebSocket API (FastAPI)
+├── ai_integration.py   External AI integration module
 ├── index.html          Standalone dashboard (no build required)
+├── examples/           AI integration examples
+│   ├── README.md
+│   ├── example_simple_sync.py
+│   ├── example_openai_integration.py
+│   ├── example_event_subscriber.py
+│   └── example_multi_ai_collaboration.py
 ├── frontend/           React interactive dashboard
 │   ├── src/
 │   │   ├── App.js
