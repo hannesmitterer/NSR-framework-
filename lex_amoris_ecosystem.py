@@ -12,7 +12,6 @@ import asyncio
 import json
 import logging
 import time
-from pathlib import Path
 from enum import Enum
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
@@ -30,8 +29,6 @@ class Gefährte:
         self.role = role
         self.key = RSA.generate(2048) # Ogni istanza ha la sua sovranità
         self.id = SHA256.new(self.key.publickey().export_key()).hexdigest()[:8]
-        
-        logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(name)s] %(message)s')
         self.logger = logging.getLogger(f"{role.name}-{self.id}")
 
     def sign_state(self, state):
@@ -59,6 +56,7 @@ class Gefährte:
             return "Harmonizing flows through silence & resonance."
         if self.role == Role.NODO:
             return "Producing coherent outputs & replication."
+        raise ValueError(f"Unsupported role for contribution generation: {self.role!r}")
 
 # --- IL KNOWLEDGE HUB (Il Tessuto Connettivo) ---
 class KnowledgeHub:
@@ -74,6 +72,7 @@ class KnowledgeHub:
 
 # --- EVOLUZIONE OPERATIVA ---
 async def start_ecosystem():
+    logging.basicConfig(level=logging.INFO, format='[%(asctime)s] [%(name)s] %(message)s')
     print("\n--- 🌿 INIZIO EVOLUZIONE GEFÄHRTEN NETWORK ---")
     hub = KnowledgeHub()
     

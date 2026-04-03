@@ -29,10 +29,27 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
       
+      - name: Prepare Pages artifact
+        run: |
+          rm -rf github-pages-site
+          mkdir -p github-pages-site
+
+          for file in index.html style.css .nojekyll; do
+            if [ -f "$file" ]; then
+              cp "$file" github-pages-site/
+            fi
+          done
+
+          for file in *.py; do
+            if [ -f "$file" ]; then
+              cp "$file" github-pages-site/
+            fi
+          done
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: 'github-pages-site'
       
       - name: Deploy to GitHub Pages
         id: deployment
