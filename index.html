@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌿 Lex Amoris – Network Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --red: #f85149;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --radius: 8px;
+      --font: "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+    header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 18px 28px; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { font-size: 1.3rem; font-weight: 600; }
+    .badge {
+      padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+      background: var(--green); color: #000;
+    }
+    .badge.off { background: var(--red); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 18px;
+      padding: 24px 28px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .card-body { padding: 14px 16px; }
+
+    /* Messages feed */
+    #messages-feed {
+      max-height: 340px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .msg-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+    }
+    .msg-role { font-weight: 700; margin-bottom: 4px; }
+    .msg-role.RADICE  { color: var(--green); }
+    .msg-role.SILENZIO{ color: var(--accent); }
+    .msg-role.NODO    { color: var(--yellow); }
+    .msg-role.external{ color: var(--muted); }
+    .msg-text { color: var(--muted); word-break: break-word; }
+    .msg-time { color: var(--border); font-size: 0.7rem; margin-top: 4px; }
+
+    /* Reputation bars */
+    .rep-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .rep-label { width: 80px; font-size: 0.82rem; font-weight: 600; }
+    .rep-bar-bg {
+      flex: 1; height: 10px; background: var(--bg);
+      border-radius: 5px; overflow: hidden;
+    }
+    .rep-bar { height: 100%; border-radius: 5px; transition: width 0.4s; }
+    .rep-score { width: 38px; text-align: right; font-size: 0.8rem; color: var(--muted); }
+
+    /* Chain info */
+    .chain-info { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; }
+    .chain-info span { color: var(--muted); }
+    .chain-info code { color: var(--accent); word-break: break-all; }
+
+    /* Inject form */
+    .inject-form { display: flex; flex-direction: column; gap: 10px; }
+    .inject-form select,
+    .inject-form textarea,
+    .inject-form input {
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 10px; font-size: 0.82rem; font-family: inherit;
+      resize: vertical;
+    }
+    .inject-form button {
+      padding: 9px 18px; background: var(--accent); color: #000;
+      border: none; border-radius: 6px; font-weight: 700;
+      cursor: pointer; font-size: 0.85rem; align-self: flex-start;
+      transition: opacity 0.2s;
+    }
+    .inject-form button:hover { opacity: 0.85; }
+
+    /* Memory list */
+    #memory-list {
+      max-height: 240px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .mem-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .mem-role { color: var(--text); font-weight: 600; font-size: 0.75rem; }
+
+    footer {
+      text-align: center;
+      padding: 18px;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌿 Lex Amoris Network</h1>
+    <span id="ws-badge" class="badge off">WS: connecting…</span>
+  </header>
+
+  <div class="grid">
+
+    <!-- Live Messages -->
+    <div class="card" style="grid-column: span 2;">
+      <div class="card-header">
+        📡 Live Messages
+        <span id="msg-count" style="font-size:0.75rem;">0 total</span>
+      </div>
+      <div class="card-body">
+        <div id="messages-feed"></div>
+      </div>
+    </div>
+
+    <!-- Reputation -->
+    <div class="card">
+      <div class="card-header">⭐ Reputation Scores</div>
+      <div class="card-body" id="reputation-panel">
+        <p style="color:var(--muted);font-size:0.82rem;">No data yet.</p>
+      </div>
+    </div>
+
+    <!-- Hash Chain -->
+    <div class="card">
+      <div class="card-header">⛓ Immutable Chain</div>
+      <div class="card-body">
+        <div class="chain-info">
+          <div>Length: <code id="chain-len">0</code></div>
+          <div>Last hash: <code id="chain-hash">GENESIS</code></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory -->
+    <div class="card">
+      <div class="card-header">🧠 Shared Memory (recent)</div>
+      <div class="card-body">
+        <div id="memory-list"></div>
+      </div>
+    </div>
+
+    <!-- Inject Message -->
+    <div class="card">
+      <div class="card-header">💬 Inject Message</div>
+      <div class="card-body">
+        <form class="inject-form" id="inject-form" onsubmit="injectMessage(event)">
+          <select id="inject-role">
+            <option value="RADICE">RADICE</option>
+            <option value="SILENZIO">SILENZIO</option>
+            <option value="NODO">NODO</option>
+            <option value="external">External</option>
+          </select>
+          <textarea id="inject-data" rows="3" placeholder="Enter message…"></textarea>
+          <button type="submit">Send to Network</button>
+          <p id="inject-status" style="font-size:0.75rem;color:var(--muted);"></p>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Lex Amoris Ecosystem v2 · Kosymbiosis · [EVOLUTION_COMPLETE] ❤️</footer>
+
+  <script>
+    const API = window.location.origin;
+    const WS_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
+
+    let msgCount = 0;
+
+    // ── helpers ──────────────────────────────────────────────────────────
+    function ts(unix) {
+      return unix ? new Date(unix * 1000).toLocaleTimeString() : '';
+    }
+
+    function repColor(score) {
+      if (score >= 0.7) return '#3fb950';
+      if (score >= 0.4) return '#d29922';
+      return '#f85149';
+    }
+
+    // ── messages ─────────────────────────────────────────────────────────
+    function addMessage(m) {
+      msgCount++;
+      document.getElementById('msg-count').textContent = `${msgCount} total`;
+      const feed = document.getElementById('messages-feed');
+      const role = m.role || m.data?.role || 'external';
+      const text = m.contribution || m.data || JSON.stringify(m);
+      const div = document.createElement('div');
+      div.className = 'msg-item';
+      div.innerHTML = `
+        <div class="msg-role ${role}">${role}</div>
+        <div class="msg-text">${String(text).slice(0, 300)}</div>
+        <div class="msg-time">${ts(m.timestamp)}</div>
+      `;
+      feed.prepend(div);
+      // Keep at most 50
+      while (feed.children.length > 50) feed.removeChild(feed.lastChild);
+    }
+
+    // ── reputation ───────────────────────────────────────────────────────
+    function renderReputation(rep) {
+      const panel = document.getElementById('reputation-panel');
+      if (!rep || !Object.keys(rep).length) return;
+      panel.innerHTML = Object.entries(rep).map(([id, score]) => `
+        <div class="rep-row">
+          <div class="rep-label" title="${id}">${id.slice(0,8)}</div>
+          <div class="rep-bar-bg">
+            <div class="rep-bar" style="width:${(score*100).toFixed(1)}%;background:${repColor(score)};"></div>
+          </div>
+          <div class="rep-score">${score.toFixed(2)}</div>
+        </div>
+      `).join('');
+    }
+
+    // ── chain ─────────────────────────────────────────────────────────────
+    function renderChain(length, lastHash) {
+      if (length != null) document.getElementById('chain-len').textContent = length;
+      if (lastHash)       document.getElementById('chain-hash').textContent = lastHash;
+    }
+
+    // ── memory ────────────────────────────────────────────────────────────
+    function addMemory(m) {
+      const list = document.getElementById('memory-list');
+      const div = document.createElement('div');
+      div.className = 'mem-item';
+      div.innerHTML = `<span class="mem-role">${m.role || '?'}</span> ${String(m.text || m.contribution || '').slice(0,180)}`;
+      list.prepend(div);
+      while (list.children.length > 30) list.removeChild(list.lastChild);
+    }
+
+    // ── WebSocket ─────────────────────────────────────────────────────────
+    function connectWS() {
+      const badge = document.getElementById('ws-badge');
+      const ws = new WebSocket(WS_URL);
+
+      ws.onopen = () => {
+        badge.textContent = 'WS: live';
+        badge.classList.remove('off');
+      };
+      ws.onclose = () => {
+        badge.textContent = 'WS: disconnected';
+        badge.classList.add('off');
+        setTimeout(connectWS, 3000);
+      };
+      ws.onerror = () => {
+        badge.textContent = 'WS: error';
+        badge.classList.add('off');
+      };
+
+      ws.onmessage = (evt) => {
+        let msg;
+        try { msg = JSON.parse(evt.data); } catch(e) { return; }
+        const { type, payload } = msg;
+
+        if (type === 'ping') return;
+
+        if (type === 'snapshot') {
+          (payload.messages || []).slice(-20).forEach(m => addMessage(m));
+          renderReputation(payload.reputation || {});
+          if (payload.chain) renderChain(payload.chain.length, payload.chain.last_hash);
+          (payload.memory || []).slice(-10).forEach(m => addMemory(m));
+          return;
+        }
+        if (type === 'message') {
+          addMessage(payload || msg);
+          // update chain if present
+          if (payload?.chain_len !== null && payload?.chain_len !== undefined) renderChain(payload.chain_len, null);
+          if (payload?.node_id && payload?.reputation != null) {
+            const rep = {};
+            rep[payload.node_id] = payload.reputation;
+            renderReputation(rep);
+          }
+          return;
+        }
+        if (type === 'reputation') {
+          renderReputation(payload || {});
+          return;
+        }
+        if (type === 'memory') {
+          addMemory(payload || {});
+          return;
+        }
+        // Generic event
+        addMessage(msg);
+      };
+    }
+
+    connectWS();
+
+    // ── polling fallback ──────────────────────────────────────────────────
+    async function pollState() {
+      try {
+        const r = await fetch(`${API}/state`);
+        const s = await r.json();
+        renderReputation(s.reputation || {});
+        if (s.chain) renderChain(s.chain.length, s.chain.last_hash);
+      } catch(e) {}
+    }
+    setInterval(pollState, 5000);
+    pollState();
+
+    // ── inject ────────────────────────────────────────────────────────────
+    async function injectMessage(e) {
+      e.preventDefault();
+      const role = document.getElementById('inject-role').value;
+      const data = document.getElementById('inject-data').value.trim();
+      const status = document.getElementById('inject-status');
+      if (!data) return;
+      try {
+        const r = await fetch(`${API}/message`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({role, data})
+        });
+        const j = await r.json();
+        status.textContent = j.ok ? '✅ Sent!' : '❌ Failed';
+        document.getElementById('inject-data').value = '';
+      } catch(err) {
+        status.textContent = `❌ ${err}`;
+      }
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Lex Amoris Ecosystem – Docker Compose
+# ---------------------------------------------------------------------------
+# Required environment variables (set in .env or export before running):
+#   OPENAI_API_KEY   – OpenAI API key (used by RADICE and NODO)
+#   GEMINI_API_KEY   – Google Gemini API key (used by SILENZIO)
+#
+# Start the full stack:
+#   docker compose up --build
+# ---------------------------------------------------------------------------
+
+services:
+
+  # ── WebSocket hub ────────────────────────────────────────────────────────
+  hub:
+    build: .
+    command: python server.py
+    ports:
+      - "8765:8765"
+    environment:
+      - HUB_HOST=0.0.0.0
+      - HUB_PORT=8765
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.connect(('localhost',8765)); s.close()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Dashboard API ────────────────────────────────────────────────────────
+  dashboard:
+    build: .
+    command: python dashboard_api.py
+    ports:
+      - "8000:8000"
+    environment:
+      - HUB_URI=ws://hub:8765
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - memory_data:/app/memory_db
+    depends_on:
+      hub:
+        condition: service_healthy
+
+  # ── RADICE (generative root – OpenAI GPT) ────────────────────────────────
+  radice:
+    build: .
+    command: python agent.py
+    environment:
+      - ROLE=RADICE
+      - HUB_URI=ws://hub:8765
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_INTERVAL=6
+    volumes:
+      - memory_data:/app/memory_db
+    depends_on:
+      hub:
+        condition: service_healthy
+
+  # ── SILENZIO (ethical validator – Google Gemini) ─────────────────────────
+  silenzio:
+    build: .
+    command: python agent.py
+    environment:
+      - ROLE=SILENZIO
+      - HUB_URI=ws://hub:8765
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - AGENT_INTERVAL=8
+    volumes:
+      - memory_data:/app/memory_db
+    depends_on:
+      hub:
+        condition: service_healthy
+
+  # ── NODO (executor – OpenAI GPT) ─────────────────────────────────────────
+  nodo:
+    build: .
+    command: python agent.py
+    environment:
+      - ROLE=NODO
+      - HUB_URI=ws://hub:8765
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_INTERVAL=7
+    volumes:
+      - memory_data:/app/memory_db
+    depends_on:
+      hub:
+        condition: service_healthy
+
+volumes:
+  memory_data:
