@@ -35,14 +35,21 @@ from pydantic import BaseModel
 from rate_limiter import RateLimiter
 from audit_log import get_audit_log, AuditEventType
 from ipfs_client import get_ipfs_client
+from heartbeat import get_heartbeat_monitor, HeartbeatEmitter
+from syntropy_metrics import get_syntropy_metrics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [API] %(message)s")
 logger = logging.getLogger(__name__)
 
-# Initialize rate limiter, audit log, and IPFS client
+# Initialize rate limiter, audit log, IPFS client, heartbeat monitor, and syntropy metrics
 rate_limiter = RateLimiter()
 audit_log = get_audit_log()
 ipfs_client = get_ipfs_client()
+heartbeat_monitor = get_heartbeat_monitor()
+syntropy_metrics = get_syntropy_metrics()
+
+# Heartbeat emitter (started on app startup)
+heartbeat_emitter: Optional[HeartbeatEmitter] = None
 
 app = FastAPI(
     title="Lex Amoris Network API",
@@ -444,6 +451,140 @@ def get_audit_stats():
 
 
 # ---------------------------------------------------------------------------
+# Heartbeat Monitoring Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get("/heartbeat/stats", summary="Get heartbeat statistics")
+def get_heartbeat_stats():
+    stats = heartbeat_monitor.get_stats()
+    return {
+        "total_beats": stats.total_beats,
+        "average_frequency": stats.average_frequency,
+        "target_frequency": stats.target_frequency,
+        "frequency_variance": stats.frequency_variance,
+        "missed_beats": stats.missed_beats,
+        "anomalies_detected": stats.anomalies_detected,
+        "uptime_seconds": stats.uptime_seconds,
+        "last_beat_timestamp": stats.last_beat_timestamp,
+    }
+
+
+@app.post("/heartbeat/beat", summary="Record a manual heartbeat")
+async def record_heartbeat():
+    """Manually record a heartbeat (for testing)."""
+    is_normal = heartbeat_monitor.beat()
+    return {
+        "ok": True,
+        "is_normal": is_normal,
+        "current_frequency": heartbeat_monitor.get_current_frequency(),
+    }
+
+
+@app.get("/heartbeat/frequency", summary="Get current heartbeat frequency")
+def get_heartbeat_frequency(window_size: int = 100):
+    frequency = heartbeat_monitor.get_current_frequency(window_size)
+    variance = heartbeat_monitor.get_frequency_variance(window_size)
+    
+    return {
+        "current_frequency": frequency,
+        "target_frequency": heartbeat_monitor.target_frequency,
+        "variance": variance,
+        "in_range": variance is not None and variance < 0.1,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Syntropy Metrics Endpoints
+# ---------------------------------------------------------------------------
+
+class SyntropyMessageEval(BaseModel):
+    sender_id: str
+    message_content: str
+    metadata: dict | None = None
+
+
+class SyntropyActionEval(BaseModel):
+    actor_id: str
+    action_type: str
+    success: bool
+    metadata: dict | None = None
+
+
+@app.post("/syntropy/evaluate/message", summary="Evaluate a message for syntropy")
+async def evaluate_message_syntropy(req: SyntropyMessageEval):
+    score = syntropy_metrics.evaluate_message(
+        sender_id=req.sender_id,
+        message_content=req.message_content,
+        metadata=req.metadata,
+    )
+    
+    return {
+        "score": score.value,
+        "behavior_type": score.behavior_type.value,
+        "confidence": score.confidence,
+        "reason": score.reason,
+        "is_syntropic": score.is_syntropic(),
+        "is_parasitic": score.is_parasitic(),
+    }
+
+
+@app.post("/syntropy/evaluate/action", summary="Evaluate an action for syntropy")
+async def evaluate_action_syntropy(req: SyntropyActionEval):
+    score = syntropy_metrics.evaluate_action(
+        actor_id=req.actor_id,
+        action_type=req.action_type,
+        success=req.success,
+        metadata=req.metadata,
+    )
+    
+    return {
+        "score": score.value,
+        "behavior_type": score.behavior_type.value,
+        "confidence": score.confidence,
+        "reason": score.reason,
+    }
+
+
+@app.get("/syntropy/entity/{entity_id}", summary="Get syntropy score for entity")
+def get_entity_syntropy(entity_id: str, window_size: int = 100):
+    avg_score = syntropy_metrics.get_entity_score(entity_id, window_size)
+    classification = syntropy_metrics.get_entity_classification(entity_id)
+    
+    return {
+        "entity_id": entity_id,
+        "average_score": avg_score,
+        "classification": classification.value,
+        "window_size": window_size,
+    }
+
+
+@app.get("/syntropy/global", summary="Get global syntropy statistics")
+def get_global_syntropy():
+    stats = syntropy_metrics.get_global_stats()
+    is_aligned = syntropy_metrics.is_urformel_aligned()
+    
+    return {
+        **stats,
+        "urformel_aligned": is_aligned,
+        "alignment_status": "ALIGNED" if is_aligned else "NOT_ALIGNED",
+    }
+
+
+@app.get("/syntropy/health", summary="Check Urformel alignment")
+def check_urformel_alignment(threshold: float = 0.6):
+    is_aligned = syntropy_metrics.is_urformel_aligned(threshold)
+    stats = syntropy_metrics.get_global_stats()
+    
+    return {
+        "urformel_aligned": is_aligned,
+        "health_score": stats["health_score"],
+        "threshold": threshold,
+        "syntropic_ratio": stats["syntropic_ratio"],
+        "parasitic_ratio": stats["parasitic_ratio"],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Hub bridge: subscribe to the hub and mirror events into STATE + WS clients
 # ---------------------------------------------------------------------------
 
@@ -491,7 +632,21 @@ async def _hub_bridge():
 
 @app.on_event("startup")
 async def startup():
+    global heartbeat_emitter
+    
+    # Start hub bridge
     asyncio.create_task(_hub_bridge())
+    
+    # Start heartbeat emitter (optional, can be configured via env)
+    if os.getenv("ENABLE_HEARTBEAT", "false").lower() == "true":
+        heartbeat_emitter = HeartbeatEmitter(
+            target_frequency=float(os.getenv("HEARTBEAT_FREQUENCY", "321.5")),
+            monitor=heartbeat_monitor
+        )
+        heartbeat_emitter.start()
+        logger.info("Heartbeat emitter started")
+    else:
+        logger.info("Heartbeat emitter disabled (set ENABLE_HEARTBEAT=true to enable)")
 
 
 # ---------------------------------------------------------------------------
