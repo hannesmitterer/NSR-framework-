@@ -87,7 +87,7 @@ class SignedMessage:
             h = SHA256.new(canonical)
             pkcs1_15.new(public_key).verify(h, bytes.fromhex(self.signature))
             return True
-        except (ValueError, TypeError, Exception):
+        except Exception:
             return False
 
 

@@ -49,7 +49,7 @@ heartbeat_monitor = get_heartbeat_monitor()
 syntropy_metrics = get_syntropy_metrics()
 
 # Heartbeat emitter (started on app startup)
-heartbeat_emitter: Optional[HeartbeatEmitter] = None
+_heartbeat_emitter: Optional[HeartbeatEmitter] = None
 
 app = FastAPI(
     title="Lex Amoris Network API",
@@ -632,18 +632,18 @@ async def _hub_bridge():
 
 @app.on_event("startup")
 async def startup():
-    global heartbeat_emitter
+    global _heartbeat_emitter
     
     # Start hub bridge
     asyncio.create_task(_hub_bridge())
     
     # Start heartbeat emitter (optional, can be configured via env)
     if os.getenv("ENABLE_HEARTBEAT", "false").lower() == "true":
-        heartbeat_emitter = HeartbeatEmitter(
+        _heartbeat_emitter = HeartbeatEmitter(
             target_frequency=float(os.getenv("HEARTBEAT_FREQUENCY", "321.5")),
             monitor=heartbeat_monitor
         )
-        heartbeat_emitter.start()
+        _heartbeat_emitter.start()
         logger.info("Heartbeat emitter started")
     else:
         logger.info("Heartbeat emitter disabled (set ENABLE_HEARTBEAT=true to enable)")
