@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="780" height="560" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <style>
+    .box { fill:#f9f9f9; stroke:#333; stroke-width:1.5px; rx:8px; ry:8px; }
+    .title { font:600 14px sans-serif; fill:#222; }
+    .subtitle { font:500 12px sans-serif; fill:#555; }
+    .icon { font:20px sans-serif; }
+    .arrow { fill:none; stroke:#666; stroke-width:1.2px; marker-end:url(#arrowhead); }
+  </style>
+
+  <!-- Arrowhead marker -->
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6"
+            refX="0" refY="3" orient="auto" fill="#666">
+      <path d="M0,0 L0,6 L8,3 z"/>
+    </marker>
+  </defs>
+
+  <!-- Boxes -->
+  <g transform="translate(30,20)">
+    <!-- ROOT AUTHORITY -->
+    <rect class="box" x="0" y="0" width="720" height="60"/>
+    <text class="icon" x="20" y="38">🔐</text>
+    <text class="title" x="60" y="30">ROOT AUTHORITY</text>
+    <text class="subtitle" x="60" y="48">Hannes Mitterer (Seedbringer)</text>
+  </g>
+
+  <g transform="translate(30,100)">
+    <!-- AI INFRASTRUCTURE -->
+    <rect class="box" x="0" y="0" width="720" height="60"/>
+    <text class="icon" x="20" y="38">⚙️</text>
+    <text class="title" x="60" y="30">AI INFRASTRUCTURE</text>
+    <text class="subtitle" x="60" y="48">Full Architecture</text>
+  </g>
+
+  <g transform="translate(30,180)">
+    <!-- ETHICAL LOCK -->
+    <rect class="box" x="0" y="0" width="720" height="60"/>
+    <text class="icon" x="20" y="38">🟡</text>
+    <text class="title" x="60" y="30">ETHICAL LOCK</text>
+    <text class="subtitle" x="60" y="48">Lex Amoris + OLF + Golden Rule</text>
+  </g>
+
+  <g transform="translate(30,260)">
+    <!-- VERIFICATION & INTEGRITY -->
+    <rect class="box" x="0" y="0" width="720" height="60"/>
+    <text class="icon" x="20" y="38">🔐</text>
+    <text class="title" x="60" y="30">VERIFICATION & INTEGRITY</text>
+    <text class="subtitle" x="60" y="48">Audit + IPFS + Blockchain + Signature</text>
+  </g>
+
+  <g transform="translate(30,340)">
+    <!-- TEMPORAL & MANIFESTATION -->
+    <rect class="box" x="0" y="0" width="720" height="60"/>
+    <text class="icon" x="20" y="38">⏱️</text>
+    <text class="title" x="60" y="30">TEMPORAL & MANIFESTATION</text>
+    <text class="subtitle" x="60" y="48">2026‑04‑04 09:15 UTC | Motto</text>
+  </g>
+
+  <g transform="translate(30,420)">
+    <!-- STRESS TEST VALIDATION -->
+    <rect class="box" x="0" y="0" width="720" height="100"/>
+    <text class="icon" x="20" y="38">📈</text>
+    <text class="title" x="60" y="30">STRESS TEST VALIDATION</text>
+    <text class="subtitle" x="60" y="48">Peak Load 10k req/sec | Phi Nexus 99.98 % | OLF 12 ms | Golden Rule TOTAL</text>
+    <text class="subtitle" x="60" y="68">Env : 32‑core CPU, 256 GB RAM, 100 Gbps net, runtime v3.7</text>
+  </g>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M390,80   L390,100"/>
+  <path class="arrow" d="M390,160  L390,180"/>
+  <path class="arrow" d="M390,240  L390,260"/>
+  <path class="arrow" d="M390,320  L390,340"/>
+  <path class="arrow" d="M390,400  L390,420"/>
+</svg>
