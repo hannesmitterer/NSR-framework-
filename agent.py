@@ -34,6 +34,8 @@ from Crypto.Hash import SHA256
 from llm import call_gpt, call_gemini
 from memory import SharedMemory
 from reputation import ReputationSystem
+from signed_message import SignedMessageFactory, PublicKeyRegistry
+from audit_log import get_audit_log, AuditEventType
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,6 +94,8 @@ class Agent:
         # Shared infrastructure
         self.memory = SharedMemory()
         self.reputation = ReputationSystem()
+        self.key_registry = PublicKeyRegistry()
+        self.audit_log = get_audit_log()
 
         # Runtime state
         self.shared_state: dict[str, str] = {}
@@ -166,19 +170,36 @@ class Agent:
     # ------------------------------------------------------------------
 
     def _build_manifest(self, contribution: str) -> dict:
-        state = {
-            "node_id": self.node_id,
-            "role": self.role.value,
+        # Create signed message using new SignedMessage infrastructure
+        content = {
             "cycle": self._cycle,
-            "timestamp": time.time(),
             "status": "SCARCITY_DEFEATED",
             "contribution": contribution,
             "shared_state_snapshot": dict(self.shared_state),
             "chain_len": self.memory.chain_length(),
             "reputation": self.reputation.get(self.node_id),
         }
-        state["signature"] = sign_state(self._private_key, state)
-        return state
+        
+        signed_msg = SignedMessageFactory.create_signed_message(
+            sender_id=self.node_id,
+            sender_role=self.role.value,
+            content=content,
+            private_key=self._private_key,
+            message_type="agent_manifest",
+        )
+        
+        # Log audit event
+        self.audit_log.log_event(
+            event_type=AuditEventType.MESSAGE_SENT,
+            actor_id=self.node_id,
+            metadata={
+                "role": self.role.value,
+                "cycle": self._cycle,
+                "message_type": "agent_manifest",
+            }
+        )
+        
+        return signed_msg.to_dict()
 
     # ------------------------------------------------------------------
     # WebSocket loops
@@ -233,22 +254,52 @@ class Agent:
             except json.JSONDecodeError:
                 continue
 
-            sender_id = data.get("node_id", "unknown")
-            sender_role = data.get("role", "?")
-            contribution = data.get("contribution", "")
+            sender_id = data.get("sender_id", "unknown")
+            sender_role = data.get("sender_role", "?")
+            
+            # Parse as SignedMessage
+            try:
+                from signed_message import SignedMessage
+                signed_msg = SignedMessage.from_dict(data)
+                
+                # Verify signature using registry
+                if not self.key_registry.verify_message(signed_msg):
+                    self.logger.warning("Invalid signature from node=%s", sender_id)
+                    self.audit_log.log_event(
+                        event_type=AuditEventType.SIGNATURE_FAILED,
+                        actor_id=sender_id,
+                        severity="warning",
+                        metadata={"reason": "signature_verification_failed"}
+                    )
+                    continue
+                
+                # Log successful verification
+                self.audit_log.log_event(
+                    event_type=AuditEventType.SIGNATURE_VERIFIED,
+                    actor_id=sender_id,
+                    metadata={"role": sender_role}
+                )
+                
+                # Extract content
+                content = signed_msg.content
+                contribution = content.get("contribution", "")
+                
+            except Exception as e:
+                self.logger.error(f"Failed to parse SignedMessage: {e}")
+                continue
 
             # --- Skip untrusted nodes ---
             if not self.reputation.is_trusted(sender_id):
                 self.logger.warning("Skipping low-trust node=%s", sender_id)
                 continue
 
-            # --- Verify signature ---
-            state_for_verify = {k: v for k, v in data.items() if k != "signature"}
-            signature = data.get("signature", "")
-            # We don't have their public key here, so we log a warning if missing.
-            # In a full deployment, nodes would exchange public keys at registration.
-            if not signature:
-                self.logger.warning("No signature from %s", sender_id)
+            # Log message received
+            self.audit_log.log_event(
+                event_type=AuditEventType.MESSAGE_RECEIVED,
+                actor_id=self.node_id,
+                target_id=sender_id,
+                metadata={"role": sender_role}
+            )
 
             # --- Update shared state ---
             self.shared_state[sender_role] = contribution
